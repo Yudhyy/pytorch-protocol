@@ -26,5 +26,5 @@ i use this repo to learn pytorch. i will build neural nets from scratch, project
 
 - [x] essential pytorch: tensors, memory, autograd, and operations.
 - [x] learning a line from scratch (manually update): forward pass, mse, backprop, and gradient descent.
-- [] pytorch idiomatic training: torch.nn, torch.optim, and the professional loop.
-- [] the transformer's feed-forward network.
+- [ ] pytorch idiomatic training: torch.nn, torch.optim, and the professional loop.
+- [ ] the transformer's feed-forward network.
