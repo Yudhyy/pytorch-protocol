@@ -22,8 +22,9 @@ i use this repo to learn pytorch. i will build neural nets from scratch, project
    ```
 3. open your browser to the link it shows.
 
-## next steps
+## roadmap
 
-- learn forward pass.
-- build a model.
-- add more notes.
+- [x] essential pytorch: tensors, memory, autograd, and operations.
+- [x] learning a line from scratch (manually update): forward pass, mse, backprop, and gradient descent.
+- [] pytorch idiomatic training: torch.nn, torch.optim, and the professional loop.
+- [] the transformer's feed-forward network.

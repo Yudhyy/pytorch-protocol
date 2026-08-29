@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.15"
+__generated_with = "0.25.1"
 app = marimo.App(width="medium", app_title="PyTorch Protocol")
 
 
@@ -91,7 +91,7 @@ def _(torch):
     zeros = torch.zeros(a_shape)
     random = torch.randn(a_shape)
     random
-    return (random,)
+    return ones, random, zeros
 
 
 @app.cell
@@ -110,6 +110,18 @@ def _(random):
 @app.cell
 def _(random):
     random
+    return
+
+
+@app.cell
+def _(ones):
+    ones
+    return
+
+
+@app.cell
+def _(zeros):
+    zeros
     return
 
 
@@ -252,7 +264,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    here comes the part that explains stride. suppose we want to access the element of the tensor y at row-2 and column-1, whose value is 10. We can write this in code.
+    here comes the part that explains `.stride` suppose we want to access the element of the tensor y at row-2 and column-1, whose value is 10. We can write this in code.
     """)
     return
 
@@ -264,9 +276,18 @@ def _(y):
     return (pos,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $$\text{loc} = \sum_{i=0}^{N-1} \text{pos}[i] \times \text{stride}[i]$$
+    """)
+    return
+
+
 @app.cell
 def _(pos, y_stride):
-    # using .stride // formula = index0 of pos * index 0 of stride + index 1 of pos * index 1 of stride
+    # pos = (row, col)
+    # y_stride = (stride_row, stride_col)
     loc = pos[0]*y_stride[0]+pos[1]*y_stride[1]
     loc
     return (loc,)
@@ -282,6 +303,38 @@ def _(loc, pos, y, y_storage):
 def _(mo):
     mo.md(r"""
     e.g use case like transpose matrix. in memory we do not copy the matrix. we just manipulate through `.stride` if the ori matrix of y (3,4) is [4,1] so the transpose we just change the `.stride` become [1,4]. that's all. the `y_storage` still same on memory.
+    """)
+    return
+
+
+@app.cell
+def _(y):
+    yt = y.t() # transpose matrix y
+    return (yt,)
+
+
+@app.cell
+def _(yt):
+    yt.shape
+    return
+
+
+@app.cell
+def _(yt):
+    yt.stride()
+    return
+
+
+@app.cell
+def _(y, yt):
+    yt.untyped_storage() is y.untyped_storage() 
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    meaning they have same storage memory
     """)
     return
 
@@ -320,7 +373,7 @@ def _(w):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Computation Graph & .grad_fn
+    # computation graph & .grad_fn
     after we have parameter now we want to track it. for what? analogy like cooking recipe. how to measure the taste e.g too salty (high loss), how do we know which seasoning to reduce?
 
     the answer is we have to trace the cooking process backward from the final result to the raw ingredient.
@@ -342,8 +395,8 @@ def _(torch):
     # after init the params, we want to compute that.
     y_ = x_*w_ #first operation
 
-    loss = y_ + 5 #second operation
-    loss
+    loss_ = y_ + 5 #second operation
+    loss_
     return (y_,)
 
 
@@ -419,9 +472,14 @@ def _(mo):
 @app.cell
 def _(torch):
     # shape (2,3)
-    m1 = torch.tensor([[1.0,0.2,0.12],[2.0,0.4,0.11]])
+    m1 = torch.tensor([
+        [1.0,0.2,0.12],
+        [2.0,0.4,0.11]])
     # shape (3,2)
-    m2 = torch.tensor([[3.0,0.3],[4.0,0.4],[0.5,5.0]])
+    m2 = torch.tensor([
+        [3.0,0.3],
+        [4.0,0.4],
+        [0.5,5.0]])
 
     mat_mul=m1@m2
     # out will be (2,2) -> takes from (row m1, column m2)
@@ -450,7 +508,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     ### reduction operations & the dim argument
-    a "reduction" is any operation that reduces a tensor to a smaller number of elements. think of things like `sum()`, `mean()`, `max()`.
+    a "reduction" is any operation that reduces a tensor to a smaller number of elements. think of things like `sum()`, `mean()`, `max()`. e.g maxpool or avgpool
     """)
     return
 
@@ -458,7 +516,9 @@ def _(mo):
 @app.cell
 def _(torch):
     # the default
-    scores = torch.tensor([[10.,20.,30.],[1.,2.,3.]])
+    scores = torch.tensor([
+        [10.,20.,30.],
+        [1.,2.,3.]])
 
     #this calculates: (10+20+30+1+2+3)/6
     avg_s = scores.mean()
@@ -485,7 +545,9 @@ def _(mo):
 @app.cell
 def _(torch):
     # calculating avgs by dimension
-    scores_= torch.tensor([[90.,70.,80.], [76.,89.,94.]])
+    scores_= torch.tensor([
+        [90.,70.,80.], 
+        [76.,89.,94.]])
 
     # to get the avg for each assignment, we collapse the student dimension (dim=0)
     avg_per_assignments = scores_.mean(dim=0)
@@ -524,6 +586,272 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### `.reshape` for multi dimension
+    the formula:
+    $$
+    \prod_{i=0}^{d-1} \text{new\_shape}_i = \prod_{i=0}^{d-1} \text{old\_shape}_i
+    $$
+    `.arrange` is 1d by default, with reshape we can make it multi axis/dimension, but must follow formula above
+    """)
+    return
+
+
+@app.cell
+def _(torch):
+    last_x= torch.arange(24).reshape(2,2,2,3) # 2x2x2x3=24
+    last_x
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $$
+    \text{last\_x} \in \mathbb{R}^{2 \times 2 \times 2 \times 3}
+    $$
+
+    there's 2 big matrix, which inside have 2 matrix and each matrix have 2 rows and 3 column
+
+    $$
+    \text{last\_x} = \begin{bmatrix}
+    \begin{bmatrix}
+    \begin{bmatrix}
+    0 & 1 & 2 \\
+    3 & 4 & 5
+    \end{bmatrix} \\
+    \begin{bmatrix}
+    6 & 7 & 8 \\
+    9 & 10 & 11
+    \end{bmatrix}
+    \end{bmatrix} \\
+    \begin{bmatrix}
+    \begin{bmatrix}
+    12 & 13 & 14 \\
+    15 & 16 & 17
+    \end{bmatrix} \\
+    \begin{bmatrix}
+    18 & 19 & 20 \\
+    21 & 22 & 23
+    \end{bmatrix}
+    \end{bmatrix}
+    \end{bmatrix}
+    $$
+    """)
+    return
+
+
+@app.cell
+def _(torch):
+    last_y= torch.arange(24).reshape(4,2,3)
+    last_y
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $$
+    \text{last\_y} \in \mathbb{R}^{4 \times 2 \times 3}
+    $$
+
+    there's 4 big matrix, each matrix have 2 rows and 3 columns
+
+    $$
+    \text{last\_y} = \begin{bmatrix}
+    \begin{bmatrix}
+    0 & 1 & 2 \\
+    3 & 4 & 5
+    \end{bmatrix} \\[1em]
+    \begin{bmatrix}
+    6 & 7 & 8 \\
+    9 & 10 & 11
+    \end{bmatrix} \\[1em]
+    \begin{bmatrix}
+    12 & 13 & 14 \\
+    15 & 16 & 17
+    \end{bmatrix} \\[1em]
+    \begin{bmatrix}
+    18 & 19 & 20 \\
+    21 & 22 & 23
+    \end{bmatrix}
+    \end{bmatrix}
+    $$
+    """)
+    return
+
+
+@app.cell
+def _(torch):
+    last_z= torch.arange(24).reshape(2,3,2,2)
+    last_z
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $$
+    \text{last\_z} \in \mathbb{R}^{2 \times 3 \times 2 \times 2}
+    $$
+    there's 2 big matrix, have 3 matrix inside, and each matrix have 2 rows and 2 columns
+    $$
+    \text{last\_z} = \begin{bmatrix}
+    \begin{bmatrix}
+    \begin{bmatrix}
+    0 & 1 \\
+    2 & 3
+    \end{bmatrix} &
+    \begin{bmatrix}
+    4 & 5 \\
+    6 & 7
+    \end{bmatrix} &
+    \begin{bmatrix}
+    8 & 9 \\
+    10 & 11
+    \end{bmatrix}
+    \end{bmatrix} \\[1.5em]
+    \begin{bmatrix}
+    \begin{bmatrix}
+    12 & 13 \\
+    14 & 15
+    \end{bmatrix} &
+    \begin{bmatrix}
+    16 & 17 \\
+    18 & 19
+    \end{bmatrix} &
+    \begin{bmatrix}
+    20 & 21 \\
+    22 & 23
+    \end{bmatrix}
+    \end{bmatrix}
+    \end{bmatrix}
+    $$
+    """)
+    return
+
+
+@app.cell
+def _(torch):
+    last_xyz= torch.arange(32).reshape(2,2,2,2,2)
+    last_xyz
+    return (last_xyz,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $$\text{last\_xyz} \in \mathbb{R}^{2 \times 2 \times 2 \times 2 \times 2}$$
+
+    there's 2 big matrix, inside that have 2 submatrix, and each submatrix inside have 2 subsubmatrix which each subsubmatrix have $2 \times 2$ matrix
+    $$
+    \text{last\_xyz} = \begin{bmatrix}
+    \begin{bmatrix}
+    \begin{bmatrix}
+    \begin{bmatrix}
+    0 & 1 \\
+    2 & 3
+    \end{bmatrix} &
+    \begin{bmatrix}
+    4 & 5 \\
+    6 & 7
+    \end{bmatrix}
+    \end{bmatrix} \\[1em]
+    \begin{bmatrix}
+    \begin{bmatrix}
+    8 & 9 \\
+    10 & 11
+    \end{bmatrix} &
+    \begin{bmatrix}
+    12 & 13 \\
+    14 & 15
+    \end{bmatrix}
+    \end{bmatrix}
+    \end{bmatrix} \\[1.5em]
+    \begin{bmatrix}
+    \begin{bmatrix}
+    \begin{bmatrix}
+    16 & 17 \\
+    18 & 19
+    \end{bmatrix} &
+    \begin{bmatrix}
+    20 & 21 \\
+    22 & 23
+    \end{bmatrix}
+    \end{bmatrix} \\[1em]
+    \begin{bmatrix}
+    \begin{bmatrix}
+    24 & 25 \\
+    26 & 27
+    \end{bmatrix} &
+    \begin{bmatrix}
+    28 & 29 \\
+    30 & 31
+    \end{bmatrix}
+    \end{bmatrix}
+    \end{bmatrix}
+    \end{bmatrix}
+    $$
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    and so on...
+    """)
+    return
+
+
+@app.cell
+def _(last_xyz):
+    last_xyz.sum(-1)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ```python
+    last_xyz = torch.arange(32).reshape(2, 2, 2, 2, 2)
+    ```
+
+    ```text
+    shape:      ( 2,  2,  2,  2,  2 )
+    axis:         0   1   2   3   4
+    negative:    -5  -4  -3  -2  -1
+    ```
+
+    | axis (pos/neg) | bracket level | size | meaning |
+    | --- | --- | --- | --- |
+    | 0 / -5 | outermost bracket | 2 | big matrix |
+    | 1 / -4 | second bracket | 2 | submatrix |
+    | 2 / -3 | third bracket | 2 | subsubmatrix |
+    | 3 / -2 | fourth bracket | 2 | rows |
+    | 4 / -1 | innermost bracket | 2 | columns |
+
+    ```text
+    last_xyz[a][b][c][r][s]
+             │  │  │  │  └─ dim 4 / -1 : columns
+             │  │  │  └──── dim 3 / -2 : rows
+             │  │  └─────── dim 2 / -3 : subsubmatrix
+             │  └────────── dim 1 / -4 : submatrix
+             └───────────── dim 0 / -5 : big matrix
+    ```
+    """)
+    return
+
+
+@app.cell
+def _(last_xyz):
+    m = last_xyz[0][0][0]
+    m
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ### selecting data
 
     #### 1. basic indexing
@@ -541,8 +869,44 @@ def _(torch):
 
 @app.cell
 def _(i):
-    # get all the last column (at index 3)
+    # get all (':') the last column (at index 3)
     i[:,-1]
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    symbol (`:`) at index 0 or row, meaning get all the rows from the tensor, then `-1` at column or index 1, represent: 'but gimme just the last column'.
+
+    ```
+    i[ all rows, column index -1 ]
+    ```
+    """)
+    return
+
+
+@app.cell
+def _(i):
+    i[:,3] # this is same, just get the column of 3
+    return
+
+
+@app.cell
+def _(i):
+    i[1,:] # get just row at index 1, then get all (:) the column
+    return
+
+
+@app.cell
+def _(i):
+    i[:, 1:3] # get all the rows with custom colum range at index 1 to index 2, note: the 3 is repr: `n-1`
+    return
+
+
+@app.cell
+def _(i):
+    i[1:3, 0:2]
     return
 
 
@@ -579,8 +943,10 @@ def _(mo):
 
 @app.cell
 def _(pred, torch):
-    indices_to_select = torch.tensor([[1],[3]])
-    best_pred_ = torch.gather(pred,dim=-1,index=indices_to_select)
+    indices_to_select = torch.tensor([[1],
+                                      [3]])
+
+    best_pred_ = torch.gather(pred, dim=1, index=indices_to_select)
     best_pred_
     return
 
@@ -589,6 +955,420 @@ def _(pred, torch):
 def _(mo):
     mo.md(r"""
     # the forward pass
+    the first guess of the model
+    $$
+    \hat{y} = XW+b
+    $$
+    we will build simple lr, $X$ is the input, $W$ is the weight, $b$ is the bias, and $\hat{y}$ is our model prediction, or guess.
+
+    $W$ and $b$ are learnable paramaters. our goal is to find the perfect values for them, so our $\hat{y}$ gets as close to the real $y$ as possible.
+
+    let's say we just have 1d or one feature to predict $y$, and our line for example we got $y = 2x+1$
+    """)
+    return
+
+
+@app.cell
+def _(torch):
+    # our batch total data will have 10 data points
+    N = 10
+
+    # input have 1 repr feat and the output 1
+    D_in = 1
+    D_out = 1
+
+    # create our X
+    X = torch.randn(10, 1)
+    X
+    return D_in, D_out, N, X
+
+
+@app.cell
+def _(D_out, N, X, torch):
+    # let's say we know the true W = 2.0, and b = 1.0
+    # we want to that X data point to find the true W and b
+    true_W = torch.tensor([[2.0]])
+    true_b = torch.tensor(1.0) # b always represent scalar number
+
+    y_true = X @ true_W + true_b + torch.randn(N, D_out)*0.1
+    return (y_true,)
+
+
+@app.cell
+def _(y_true):
+    y_true
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## the model's brain
+    we initialize the model's parameters with random values
+    """)
+    return
+
+
+@app.cell
+def _(D_in, D_out, torch):
+    W = torch.randn(D_in, D_out, requires_grad=True)
+    b = torch.randn(1, requires_grad=True)
+    return W, b
+
+
+@app.cell
+def _(W, b):
+    W, b
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## the math
+    simple lr: $\hat{y}= XW+b$
+    """)
+    return
+
+
+@app.cell
+def _(W, X, b):
+    y_hat = X @ W + b
+    return (y_hat,)
+
+
+@app.cell
+def _(y_hat):
+    y_hat[:3]
+    return
+
+
+@app.cell
+def _(y_true):
+    y_true[:3]
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    in single forward pass the model is not predict as we expected. so how to measure the loss of that?
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## the loss
+    we using mean squared error (mse)
+    $$
+    L = \frac{1}{N} \sum_{i=1}^{N} (\hat{y}_i - y_i)^2
+    $$
+    simple: give the prediction $\hat{y}$ subtract with the truth $y$ then squared to prevent mines value.
+    """)
+    return
+
+
+@app.cell
+def _(y_hat, y_true):
+    error = y_hat - y_true
+    squared_error = error **2
+    loss = squared_error.mean()
+
+    loss
+    return (loss,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    now our objective is to make this number as small as possible
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # the backward
+    we need to travel backward from `loss` and calculate gradients for all parameters with `requires_grad=True`.
+
+    in our case, it will compute the two most importand values we need:
+
+    $\frac{\partial L}{\partial W}$: the gradient of the loss w.r.t our weight $W$ <br>
+    $\frac{\partial L}{\partial b}$: the gradient of the loss w.r.t our bias $b$
+    """)
+    return
+
+
+@app.cell
+def _(loss):
+    loss.backward() #that's it
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    now pytorch learning, it populated a hidden attribute for our $W$ and $b$ tensors.
+
+    that's the `.grad` attribute.
+    """)
+    return
+
+
+@app.cell
+def _(W, b):
+    # inspect the result
+    print(f"∂L/∂W: {W.grad}")
+    print(f"∂L/∂: {b.grad}")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    _what do these number actually mean?_
+    ```
+    ∂L/∂W = tensor([[-5.8665]])
+    ∂L/∂b = tensor([-2.1222])
+    ```
+    simple rules is: if we get negative sign it means we need to go up or e.g increasing $W$ decreases the loss ($L$).
+
+    <b>"go opposite direction to minimize the loss"</b>
+
+    now we know the direction we should go
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # the process
+    so to compact all what we know so far, we need the process to automate all the learning process. all we need is the **gradient descent**.
+    $$
+    \theta_{t+1} = \theta_t - \eta \cdot \nabla_{\theta} L
+    $$
+    - $\theta$ (theta) represents all our parameters. for us, that's $W$ and $b$.
+    - $\eta$ (eta) is the learning rate. a small number (e.g., 0.01) controlling our step size.
+    - $\nabla_{\theta} L$ is the gradient of the loss. we just calculated this! it's in $W.\text{grad}$ and $b.\text{grad}$.
+    ```
+    w_new = w_old - learning_rate * W.grad
+    b_new = b_old - learning_rate * b.grad
+    ```
+    """)
+    return
+
+
+@app.cell
+def _(X, torch, y_true):
+    # entire training process (loop)
+    def _():
+        # hyperparameters
+        learning_rate, epochs = 0.01, 100
+
+        # re-initialized paramaters
+        W,b = torch.randn(1,1, requires_grad=True), torch.randn(1, requires_grad=True)
+        for epoch in range (epochs):
+            y_hat = X @ W + b 
+            loss = torch.mean((y_hat - y_true)**2)
+            loss.backward()
+
+            with torch.no_grad():
+                W -= learning_rate * W.grad; b-= learning_rate*b.grad
+
+            W.grad.zero_(); b.grad.zero_()
+
+            if epoch % 10 == 0:
+                print(f'epoch {epoch: 02d}: Loss={loss.item():.4f}, W={W.item():.3f}, b={b.item():.3f}')
+
+        print(f"final params: W={W.item():.3f}, b={b.item():.3f}")
+        return print(f"true params: w=2, b=1")
+
+
+    _()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    so far so cool...
+
+    ### <span style="color:#77C36A;">recap:</span>
+
+    **the linear model**:
+    $$\hat{y} = XW + b$$
+    with MSE loss:
+    $$L = \frac{1}{n} \sum_{i=1}^{n}(\hat{y_i}-y_i)^2$$
+
+    goals of `loss.backward()` to calculate:
+    $$ \frac{\partial{L}}{\partial{W}},  \frac{\partial{L}}{\partial{b}}$$
+    then update:
+    $$ W \leftarrow W- \eta \frac{\partial{L}}{\partial{W}} $$
+    $$ b \leftarrow b - \eta \frac{\partial{L}}{\partial{b}} $$
+
+    **little setup example**
+    $$x = 2, \quad y = 5$$
+
+    initial parameters:
+
+    $$W = 1, \quad b = 0$$
+
+    learning rate:
+
+    $$\eta = 0.1$$
+
+    forward pass
+
+    $$\hat{y} = xW + b$$
+
+    $$\hat{y} = 2(1) + 0 = 2$$
+
+    error:
+
+    $$e = \hat{y} - y = 2 - 5 = -3$$
+
+    loss:
+
+    $$L = e^2 = (-3)^2 = 9$$
+
+    we have chain:
+    $$W \rightarrow \hat{y} \rightarrow e \rightarrow L$$
+    then
+    $$ \frac{\partial{L}}{\partial{W}} = \frac{\partial{L}}{\partial{e}} \cdot \frac{\partial{e}}{\partial{\hat{y}}} \cdot \frac{\partial{\hat{y}}}{\partial{W}}$$
+    calculate each the derivative:
+    $$\frac{\partial{L}}{\partial{e}}=2e$$
+    $$\frac{\partial{e}}{\partial{\hat{y}}}=1$$
+    $$\frac{\partial \hat{y}}{\partial W} = x$$
+
+    so:
+    $$\frac{\partial{L}}{\partial{W}}=2e \cdot 1 \cdot x = 2x(\hat{y}-y)$$
+
+    insert the number:
+    $$\frac{\partial{L}}{\partial{W}}=2(-3)(2)=-12$$
+
+    then apply `loss.backward()`:
+    ```python
+    W.grad #-12
+    ```
+
+    chain rule to bias(b)<br>
+    the chain:
+    $$b \rightarrow \hat{y} \rightarrow e \rightarrow L$$
+
+    $$\frac{\partial{L}}{\partial{b}} = \frac{\partial{L}}{\partial{e}} \cdot \frac{\partial{e}}{\partial{\hat{y}}} \cdot \frac{\partial{\hat{y}}}{\partial{b}}$$
+
+    calculate the derivative:
+    $$\frac{\partial{\hat{y}}}{\partial{b}}=1$$
+
+    so:
+    $$\frac{\partial{L}}{\partial{b}}= 2e \cdot 1 \cdot 1= 2(\hat{y}-y)$$
+
+    insert the numbers:
+    $$\frac{\partial{L}}{\partial{b}}=2(-3)=-6$$
+
+    so:
+    ```python
+    b.grad #-6
+    ```
+
+    **gradient buffer**<br>
+    before backrward:
+    ```python
+    W.grad = None or 0
+    b.grad = None or 0
+    ```
+    after `loss.backward()`:
+    ```python
+    W.grad=-12
+    b.grad=-6
+    ```
+
+    **update parameter**<br>
+    gradient descent:
+    $$W_{\text{new}} = W - \eta \frac{\partial{L}}{\partial{W}}$$
+    $$b_{\text{new}} = b - \eta \frac{\partial{L}}{\partial{b}}$$
+
+    insert the numbers:
+    $$ W_{\text{new}} = 1-0.1(-12) = 1+1.2=2.2$$
+    $$ b_{\text{new}} = 0-0.1(-6) = 0+0.6=0.6$$
+
+    **zero grad**<br>
+    after updating, we reset to zero for the next loop:
+    ```python
+    W.grad.zero_() # W.grad: -12 -> 0
+    b.grad.zero_() # b.grad: -6 -> 0
+    ```
+    without this, the next iteration will:
+    $$ W.grad_{\text{new}} = W.grad_{\text{old}} + g_{\text{new}}$$
+    let's say we have $g2$ as the new grad:
+    ```text
+    without zero:
+    W.grad = -12 + g2
+
+    with zero
+    W.grad = 0 + g2 = g2
+    ```
+
+    **second iteration**<br>
+    new params:
+    $$ W =2.2, \space b=0.6$$
+    forward:
+    $$ \hat{y}=2(2.2) + 0.6 = 5.0$$
+    error:
+    $$ e=5-5=0$$
+    loss:
+    $$L=0$$
+    gradient:
+    $$\frac{\partial{L}}{\partial{W}}= 2ex=0$$
+    $$\frac{\partial{L}}{\partial{b}}=2e=0$$
+    update:
+    $$W=2.2-0.1(0)=2.2$$
+    $$b=0.6-0.1(0)=0.6$$
+    the model is a good fit for this sample
+
+    **for many sample**
+    for $n$ sample:
+    $$\hat{y_i}=x_i W+b$$
+    $$L=\frac{1}{n} \sum_{i=n}^{n} (\hat{y_i}-y_i)^2$$
+    the derivative r.w.t $W$:
+    $$\frac{\partial{L}}{\partial{W}}=\frac{1}{n} \sum_{i=1}^{n} 2 (\hat{y_i}-y_i)x_i$$
+    the derivative r.w.t $b$:
+    $$\frac{\partial{L}}{\partial{b}}=\frac{1}{n} \sum_{i=1}^{n} 2 (\hat{y_i}-y_i)$$
+
+    in pytorch:
+    ```python
+    ∂L/∂W = 2 * torch.mean((y_hat-y_true) * X)
+    ∂L/∂b = 2 * torch.mean(y_hat-y_true)
+    ```
+
+    `loss.backward()` calculate 2 values automatically through chain rule, then put that in `W.grad` and `b.grad`.
+
+    **flow final**
+    ```text
+    forward:
+    X, W, b -> y_hat -> loss
+
+    backward:
+    loss
+     ↓ dL/de = 2(y_hat - y)
+    e
+     ↓ de/dŷ = 1
+    ŷ
+     ├── dŷ/dW = X ──> dL/dW = 2X(y_hat - y)/n -> W.grad
+     └── dŷ/db = 1 ──> dL/db = 2(y_hat - y)/n -> b.grad
+
+    update:
+    W <- W - lr * W.grad
+    b <- b - lr * b.grad
+
+    reset:
+    W.grad.zero_()
+    b.grad.zero_()
+    ```
     """)
     return
 
